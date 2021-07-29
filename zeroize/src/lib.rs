@@ -228,6 +228,9 @@ use core::{ops, ptr, slice::IterMut, sync::atomic};
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, string::String, vec::Vec};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 /// Trait for securely erasing types from memory
 pub trait Zeroize {
     /// Zero out this object from memory using Rust intrinsics which ensure the
@@ -501,6 +504,32 @@ where
 {
     fn drop(&mut self) {
         self.0.zeroize()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, Z> Deserialize<'de> for Zeroizing<Z>
+where
+    Z: Deserialize<'de> + Zeroize,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Z::deserialize(deserializer).map(Self::new)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<Z> Serialize for Zeroizing<Z>
+where
+    Z: Serialize + Zeroize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
     }
 }
 
