@@ -87,6 +87,9 @@ mod string;
 #[cfg(feature = "alloc")]
 mod vec;
 
+use subtle::{
+    ConditionallySelectable, ConstantTimeEq, ConstantTimeGreater, ConstantTimeLess, CtOption,
+};
 pub use zeroize::{self, Zeroize};
 
 #[cfg(feature = "alloc")]
@@ -97,6 +100,7 @@ pub use self::bytes::SecretBytesMut;
 
 use core::{
     any,
+    cmp::Ordering,
     fmt::{self, Debug},
 };
 
@@ -177,6 +181,37 @@ where
     fn drop(&mut self) {
         // Zero the secret out from memory
         self.inner_secret.zeroize();
+    }
+}
+
+impl<S> PartialEq for Secret<S>
+where
+    S: ConstantTimeEq + Zeroize,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.inner_secret.ct_eq(&other.inner_secret).into()
+    }
+}
+
+impl<S> PartialOrd for Secret<S>
+where
+    S: ConstantTimeEq + ConstantTimeGreater + ConstantTimeLess + Zeroize,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let mut ordering = CtOption::new(
+            Ordering::Equal,
+            self.inner_secret.ct_eq(&other.inner_secret),
+        );
+        ordering.conditional_assign(
+            &CtOption::new(Ordering::Greater, 1_u8.into()),
+            self.inner_secret.ct_gt(&other.inner_secret),
+        );
+        ordering.conditional_assign(
+            &CtOption::new(Ordering::Less, 1_u8.into()),
+            self.inner_secret.ct_lt(&other.inner_secret),
+        );
+
+        ordering.into()
     }
 }
 

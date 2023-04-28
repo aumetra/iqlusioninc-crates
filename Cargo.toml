@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "bip32",
+    #"bip32",
     "canonical-path",
-    "hkd32",
+    #"hkd32",
     "iqhttp",
     "secrecy",
-    "signatory",
+   # "signatory",
     "subtle-encoding",
 ]
